@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__NAME__</title>
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.js" } }</script>
+<style>
+  :root {
+    --bg: #12161a; --panel: #1a2026; --panel2: #222a32; --line: #2e3842;
+    --text: #e6e1d6; --muted: #8f9aa5; --sand: #d8c49a; --coral: #e9764c; --me: #26323d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; display: flex; }
+  button, select, input, textarea { font: inherit; color: var(--text); }
+  button {
+    font-size: 13px; background: rgba(34, 42, 50, .92); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 11px; cursor: pointer;
+  }
+  button:hover { border-color: var(--sand); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  /* ---- the world ---- */
+  #stage { position: relative; flex: 1; min-width: 0; height: 100%; }
+  #world { position: absolute; inset: 0; }
+  .overlay { position: absolute; z-index: 5; }
+  #title { top: 14px; left: 18px; pointer-events: none; }
+  #title h1 { margin: 0; font-size: 24px; font-weight: 600; }
+  #title p { margin: 0; color: var(--muted); font-size: 13px; }
+  #title #shell { color: var(--sand); }
+  #title #aim { color: var(--text); }
+  #title p { max-width: 340px; }
+  #title #sky { color: var(--muted); }
+  #awayCard { left: 50%; top: 58px; transform: translateX(-50%); display: none; width: min(440px, 80%); }
+  #awayCard ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--text); }
+  #awayCard li { margin: 2px 0; }
+  #sentCard { right: 14px; top: 58px; display: none; width: 520px; max-height: calc(100% - 80px); overflow-y: auto; }
+  #sentCard .src { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  #sentCard .src span { flex: 1; overflow-wrap: anywhere; }
+  #sentCard .src small { display: block; color: var(--muted); }
+  #sentCard pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 Consolas, monospace; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 8px; margin: 6px 0; max-height: 340px; overflow-y: auto; }
+  #tools { top: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  #feed {
+    left: 18px; bottom: 14px; width: min(430px, 60%); display: flex; flex-direction: column; gap: 3px;
+    pointer-events: none; font-size: 13px;
+  }
+  #feed div { color: var(--muted); text-shadow: 0 1px 3px #000; }
+  #feed div:last-child { color: var(--text); }
+  #feed time { color: var(--sand); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  #feed q { color: var(--text); font-style: italic; }
+  .card {
+    background: rgba(26, 32, 38, .96); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; width: 290px; box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+  }
+  .card h3 { margin: 0 0 2px; font-size: 16px; }
+  .card p { margin: 4px 0; font-size: 13px; color: var(--muted); }
+  .card p.note { color: var(--text); font-style: italic; }
+  .card .rowb { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .card label { display: block; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .card input, .card select {
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px;
+  }
+  #itemCard { right: 14px; bottom: 14px; display: none; }
+  #chestCard { right: 14px; bottom: 14px; display: none; max-height: calc(100% - 80px); overflow-y: auto; }
+  #chestCard h4 { margin: 10px 0 4px; font-size: 12px; font-weight: 600; opacity: .7; text-transform: uppercase; letter-spacing: .04em; }
+  #chestCard .drawer button { display: block; width: 100%; text-align: left; margin: 2px 0; }
+  #giveCard { right: 14px; top: 58px; display: none; }
+  #mindCard { right: 14px; top: 58px; display: none; width: 360px; max-height: calc(100% - 80px); overflow-y: auto; z-index: 6; }
+  #mindCard h4 { margin: 12px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
+  #mindCard .th { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  #mindCard .th b { font-weight: 600; }
+  #mindCard .th small { display: block; color: var(--muted); }
+  #mindCard .th.closed { opacity: .75; }
+  /* [plans] the calendar */
+  #title #plan { color: var(--sand); }
+  #planCard { right: 14px; top: 58px; display: none; width: 400px; max-height: calc(100% - 80px); overflow-y: auto; }
+  #planCard input { color-scheme: dark; }
+  #planCard .when { display: flex; gap: 8px; }
+  #planCard .when label { flex: 1; }
+  #planCard .src { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  #planCard .src span { flex: 1; overflow-wrap: anywhere; }
+  #planCard .src small { display: block; color: var(--muted); }
+  #planCard .src q { display: block; color: var(--text); font-style: italic; }
+  #planCard h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
+  #srcCard { right: 14px; top: 58px; display: none; width: 400px; max-height: calc(100% - 80px); overflow-y: auto; }
+  #srcCard .src { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  #srcCard .src span { flex: 1; overflow-wrap: anywhere; }
+  #srcCard .src small { display: block; color: var(--muted); }
+  #srcCard h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
+  .card a { color: var(--sand); }
+  #brainCard { right: 14px; top: 58px; display: none; width: 430px; max-height: calc(100% - 80px); overflow-y: auto; }
+  #brainCard h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
+  #brainCard .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; font-size: 13px; color: var(--text); margin: 0; }
+  #brainCard .opt input { width: auto; margin-top: 3px; }
+  #brainCard .opt small { display: block; color: var(--muted); }
+  #brainCard table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #brainCard td, #brainCard th { text-align: left; padding: 3px 6px 3px 0; border-bottom: 1px solid var(--line); }
+  #brainCard td.n, #brainCard th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .primary { background: var(--coral); border-color: var(--coral); color: #1b1410; font-weight: 600; }
+
+  /* ---- chat ---- */
+  #chat { width: 400px; flex: none; height: 100%; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: #151a1f; }
+  #log { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 9px; }
+  .msg { max-width: 86%; padding: 9px 13px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--me); border-bottom-right-radius: 4px; }
+  .msg.assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.letter { align-self: flex-start; background: #2a2618; border: 1px dashed var(--sand); color: var(--sand); }
+  .msg.letter small { display: block; color: var(--muted); }
+  .msg.made { align-self: flex-start; background: #1d2a2b; border: 1px solid #35504f; }
+  .msg.made small { display: block; color: var(--muted); }
+  .msg.made svg, .row svg { display: block; background: #e6d8b4; border-radius: 8px; margin: 6px 0; }
+  .msg.made svg { width: 240px; height: 184px; }
+  .row svg { width: 96px; height: 74px; flex: none; margin: 0; }
+  .msg.made button { margin-top: 6px; }
+  svg.px { background: #46525a !important; }
+  .msg.made svg.px { width: 168px; height: 168px; }
+  .row svg.px { width: 74px; height: 74px; }
+  #iArt svg { display: block; width: 120px; height: 120px; border-radius: 8px; margin: 6px 0; }
+  .msg img { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; margin-bottom: 6px; }
+  .note { align-self: center; color: var(--muted); font-size: 12.5px; text-align: center; }
+  #attach { display: none; align-items: center; gap: 10px; padding: 8px 14px 0; font-size: 13px; color: var(--muted); }
+  #attach img { height: 54px; border-radius: 6px; }
+  form { display: flex; gap: 8px; padding: 10px 14px 14px; align-items: flex-end; }
+  textarea {
+    flex: 1; resize: none; height: 44px; max-height: 150px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  }
+  textarea:focus, .card input:focus { outline: none; border-color: var(--sand); }
+  form button { height: 44px; }
+  #chat.drop { outline: 2px dashed var(--sand); outline-offset: -6px; }
+
+  /* ---- memory drawer ---- */
+  #drawer {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100%); z-index: 20;
+    background: var(--panel); border-left: 1px solid var(--line); padding: 18px;
+    overflow-y: auto; transform: translateX(100%); transition: transform .2s ease;
+  }
+  #drawer.open { transform: none; }
+  #drawer h2 { font-size: 17px; margin: 0 0 4px; }
+  #drawer h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); margin: 22px 0 8px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0; }
+  .row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .row span { flex: 1; overflow-wrap: anywhere; }
+  .row small { display: block; color: var(--muted); }
+  .row img { width: 64px; height: 48px; object-fit: cover; border-radius: 5px; }
+  .row button { padding: 2px 8px; font-size: 12px; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+
+  @media (max-width: 900px) {
+    body { flex-direction: column; }
+    #stage { height: 50%; flex: none; }
+    #chat { width: 100%; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="world"></div>
+  <div class="overlay" id="title">
+    <h1>__NAME__</h1>
+    <p id="status">…</p>
+    <p id="shell"></p>
+    <p id="aim"></p>
+    <p id="sky"></p>
+    <p id="pet"></p>
+    <p id="mood"></p>
+    <p id="plan"></p><!-- [plans] -->
+  </div>
+  <div class="overlay" id="tools">
+    <button id="viewBtn" title="Switch between a close view that follows __NAME__ and the whole terrarium">Both tanks</button>
+    <button id="sharpBtn" title="Sharp draws the picture at full size, which looks crisper and works the graphics card harder. Smooth is softer and lighter.">Picture: sharp</button>
+    <button id="soundBtn" title="Play __NAME__'s tunes out loud when it makes one">Sound: off</button>
+    <button id="giveBtn" title="Put something in the terrarium">Give something</button>
+    <button id="planBtn" title="Tell __NAME__ about something that is coming up">Calendar</button><!-- [plans] -->
+    <button id="tapBtn" title="Get __NAME__'s attention">Tap the glass</button>
+    <button id="srcBtn" title="News sources __NAME__'s tide can bring scraps from">Sources</button>
+    <button id="brainBtn" title="Where __NAME__'s thinking runs, and what it costs">Brain</button>
+    <button id="sentBtn" title="Everything this program has sent off this PC">Sent out</button>
+    <button id="mindBtn" title="The things __NAME__ has on the go, and how each is getting on">On its mind</button>
+    <button id="memBtn">Memory</button>
+    <button id="tuckBtn" title="Unload the model and free the graphics card">Tuck in</button>
+    <button id="quitBtn" title="Close everything">Quit</button>
+  </div>
+  <div class="overlay" id="feed" aria-live="polite"></div>
+
+  <div class="overlay card" id="giveCard">
+    <h3>Give __NAME__ something</h3>
+    <p>It lands by the front glass. __NAME__ decides what to do with it.</p>
+    <label for="gName">What is it?</label>
+    <input id="gName" maxlength="40" placeholder="a lug nut from the kart">
+    <label for="gDesc">Anything worth knowing about it (optional)</label>
+    <input id="gDesc" maxlength="160" placeholder="from my first race">
+    <label for="gKind">Shape</label>
+    <select id="gKind"></select>
+    <div class="rowb"><button class="primary" id="gSend">Put it in</button><button id="gCancel">Cancel</button></div>
+    <p id="gErr" style="color: var(--coral)"></p>
+  </div>
+
+  <div class="overlay card" id="planCard"><!-- [plans] -->
+    <h3>The calendar by the glass</h3>
+    <p>Put something on it and __NAME__ knows it is coming. From 15 minutes before until it ends, __NAME__ can come to the glass for it. Times are this PC's clock.</p>
+    <h4>Coming up</h4><div id="planList"></div>
+    <h4>Lately</h4><div id="planPast"></div>
+    <label for="pTitle">Add something: what is it?</label>
+    <input id="pTitle" maxlength="60" placeholder="Race at Road America">
+    <div class="when">
+      <label for="pDate">Day<input id="pDate" type="date"></label>
+      <label for="pTime">Time<input id="pTime" type="time"></label>
+      <label for="pMins">Minutes<input id="pMins" type="number" min="5" max="1440" step="5" value="60"></label>
+    </div>
+    <p id="planErr" style="color: var(--coral)"></p>
+    <div class="rowb"><button class="primary" id="planAdd">Add</button><button id="planClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="srcCard">
+    <h3>News sources</h3>
+    <p>The tide sometimes brings __NAME__ a scrap of news from these feeds. Only these addresses are ever contacted, and __NAME__ can't search or browse.</p>
+    <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="srcOn" style="width:auto"> Let the tide bring news scraps</label>
+    <h4>Your sources</h4><div id="srcList"></div>
+    <h4>Suggestions</h4><div id="srcSuggest"></div>
+    <label for="srcUrl">Add a feed address (RSS or Atom, https)</label>
+    <input id="srcUrl" maxlength="300" placeholder="https://example.com/feed/">
+    <p id="srcErr" style="color: var(--coral)"></p>
+    <div class="rowb"><button class="primary" id="srcAdd">Add</button><button id="srcFetch">Check now</button><button id="srcClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="brainCard">
+    <h3>Where __NAME__ thinks</h3>
+    <label class="opt"><input type="radio" name="brain" value="local"><span>On this PC
+      <small>Private: nothing leaves this computer. Uses about 8 GB of graphics memory, so __NAME__ sleeps while you race.</small></span></label>
+    <label class="opt"><input type="radio" name="brain" value="cloud"><span>In the cloud (Claude Haiku)
+      <small>Frees the graphics card and __NAME__ can stay awake while you race. Its notebook, journal, your conversation and any photo it looks at are sent to Anthropic. Costs money per use.</small></span></label>
+    <p id="brainErr" style="color: var(--coral)"></p>
+    <h4>Anthropic API key</h4>
+    <p id="keyState"></p>
+    <input id="keyBox" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <div class="rowb"><button class="primary" id="keySave">Save key</button><button id="keyForget">Forget key</button></div>
+    <p>The key is stored encrypted for your Windows account on this PC. You create one at console.anthropic.com.</p>
+    <h4>Cloud usage</h4>
+    <table><thead><tr><th></th><th class="n">Calls</th><th class="n">Cost</th></tr></thead><tbody id="useRows"></tbody></table>
+    <p id="useNote"></p>
+    <p id="moveNote"></p>
+    <h4>Asking the wider world</h4><!-- [research] -->
+    <label class="opt"><input type="checkbox" id="wireOn"><span>Let __NAME__ send a question down the wire
+      <small>Cloud only. When its encyclopedia has nothing on a find, or when you ask it to search the web, one short question goes to Anthropic, which runs the search. This PC never opens a web page.</small></span></label>
+    <p id="wireNote"></p>
+    <p id="wireErr" style="color: var(--coral)"></p>
+    <div class="rowb"><button id="brainClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="awayCard">
+    <h3 id="awayTitle"></h3>
+    <ul id="awayList"></ul>
+    <div class="rowb"><button class="primary" id="awayOk">OK</button></div>
+  </div>
+
+  <div class="overlay card" id="sentCard">
+    <h3>What has left this PC</h3>
+    <p id="sentNote"></p>
+    <div id="sentList"></div>
+    <div class="rowb"><button id="sentClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="mindCard">
+    <h3>On __NAME__'s mind</h3>
+    <p>Unfinished business it carries from day to day. The program keeps this list from what really happened; __NAME__ cannot tick anything off itself.</p>
+    <div id="mindList"></div>
+    <div class="rowb"><button id="mindClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="chestCard">
+    <h3>The tool chest</h3>
+    <p id="chestNote"></p>
+    <div id="chestList"></div>
+    <div class="rowb"><button id="chestClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="itemCard">
+    <h3 id="iName"></h3>
+    <div id="iArt"></div>
+    <p id="iDesc"></p>
+    <p id="iFrom"></p>
+    <p class="note" id="iNote"></p>
+    <p id="iRead"></p>
+    <p id="iLinkP"><a id="iLink" target="_blank" rel="noopener noreferrer">Read the article</a></p>
+    <div class="rowb">
+      <select id="iPlace" style="flex: 1"></select>
+      <button id="iMove">Move</button>
+    </div>
+    <div class="rowb"><button id="iRemove">Take it out</button><button id="iClose">Close</button></div>
+  </div>
+</div>
+
+<div id="chat">
+  <div id="log" aria-live="polite"></div>
+  <div id="attach"><img id="attachImg" alt=""><span>Photo ready to show</span><button id="attachX" type="button">Remove</button></div>
+  <form id="form">
+    <button type="button" id="photoBtn" title="Show __NAME__ a photo">Photo</button>
+    <textarea id="box" placeholder="Say something to __NAME__" autofocus></textarea>
+    <button class="primary" id="send">Send</button>
+    <input type="file" id="file" accept="image/*" hidden>
+  </form>
+</div>
+
+<aside id="drawer" aria-label="Memory">
+  <div class="top"><h2>What __NAME__ remembers</h2><button id="closeMem">Close</button></div>
+  <p class="hint">Everything here is stored on this PC only. Forget removes it for good.</p>
+  <h3>Notebook: what it knows about you</h3><div id="facts"></div>
+  <h3>Journal: your conversations</h3><div id="journal"></div>
+  <h3>Older journal, condensed</h3><div id="digests"></div>
+  <h3>Diary: its own days</h3><div id="diary"></div>
+  <h3>Resting words</h3><div id="resting"></div>
+  <h3>Best lines</h3><div id="bestlines"></div>
+  <h3>What it has come to believe</h3><div id="beliefs"></div>
+  <h3>Who it has become</h3><div id="become"></div>
+  <h3>Things it has worked out</h3><div id="worked"></div>
+  <h3>Its last seven days, and what it dreamt</h3><div id="days"></div>
+  <h3>What it has read in its encyclopedia</h3><div id="reading"></div>
+  <h3>Photos you have shown it</h3><div id="photos"></div>
+  <h3>Things it has made</h3><div id="makes"></div>
+  <h3>Drawings it has made</h3><div id="drawings"></div>
+  <h3>Tunes it has made</h3><div id="tunes"></div>
+</aside>
+
+<script type="module">
+import { createWorld } from "/world.js";
+
+const TOKEN = "__TOKEN__", NAME = "__NAME__", UIVER = "__UIVER__";
+const $ = id => document.getElementById(id);
+const log = $("log"), box = $("box");
+let closed = false, following = true, loaded = false, soundOn = false;
+let busy = false, state = "asleep", lastEvent = null, snapshot = null, picked = null, pendingPhoto = null;
+
+const api = (path, body) => fetch(path, {
+  method: body === undefined ? "GET" : "POST",
+  headers: { "X-Crab-Token": TOKEN, "Content-Type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+const photoUrl = id => `/photo/${id}.jpg?t=${encodeURIComponent(TOKEN)}`;
+const clock = ts => new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+const day = ts => new Date(ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+// ---------------------------------------------------------------- world
+
+const world = createWorld($("world"), {
+  token: TOKEN, name: NAME,
+  onPickItem: item => { showChest(false); showItem(item); },
+  onPickChest: () => { showItem(null); showChest(true); },
+  onTapCrab: () => tap(),
+});
+
+const STATUS = {
+  awake: "Out and about",
+  waking: "Waking up…",
+  asleep: "Asleep in the helmet. Say something or tap the glass",
+  tucked: "Tucked into the helmet while you race",
+  error: "Something is wrong",
+};
+
+function showState(p) {
+  state = p.state;
+  let text = STATUS[p.state] || p.state;
+  if (p.state === "error" && p.error) text = p.error;
+  if (p.state === "awake" && p.crab.napping_until) text = "Having a nap";
+  if (p.state === "awake" && busy) text = "Thinking…";
+  $("status").textContent = text;
+  const n = p.helmet.next;
+  $("shell").textContent = "Shell: " + p.helmet.name + (n
+    ? (n.waiting ? ". A bigger one is waiting at the tideline" : `. Collection ${n.have} of ${n.need} for the next`)
+    : "");
+  $("aim").textContent = p.aim ? `Working towards: to ${p.aim.text} (${p.aim.progress})` : "";
+  const phase = { night: "Night", dawn: "Early morning", morning: "Morning", midday: "Midday", afternoon: "Afternoon", dusk: "Evening" };
+  $("pet").textContent = p.pet ? (p.pet.name ? `${p.pet.name} the shrimp: ` : "The shrimp (no name yet): ")
+    + p.pet.doing + (p.pet.hungry ? ", and hungry" : "") : "";
+  $("sky").textContent = p.sky ? (phase[p.sky.phase] || "") + " in the tanks" + (p.sky.rain ? ", and the misters are on" : "") : "";
+  $("mood").textContent = p.mood ? "Mood: " + p.mood.words : "";  // [mood]
+  $("plan").textContent = p.plan || "";      // [plans]
+  showAway(p.away);
+  $("tuckBtn").disabled = p.state !== "awake" || busy;
+  $("tapBtn").disabled = p.state === "tucked";
+  $("send").disabled = busy || p.state === "tucked";
+}
+
+let awayShown = null;
+function showAway(a) {
+  if (!a) { $("awayCard").style.display = "none"; awayShown = null; return; }
+  if (awayShown === a.id) return;
+  awayShown = a.id;
+  $("awayTitle").textContent = `While you were away (${a.gap})`;
+  $("awayList").replaceChildren(...a.lines.map(t => { const li = document.createElement("li"); li.textContent = t; return li; }));
+  $("awayCard").style.display = "block";
+}
+$("awayOk").onclick = async () => { $("awayCard").style.display = "none"; await api("/api/away-seen", {}); };
+
+function feedLine(e) {
+  const el = document.createElement("div");
+  const t = document.createElement("time"); t.textContent = clock(e.ts);
+  el.append(t, e.text);
+  if (e.words && e.move !== "leave_note" && !/^(draw|play_tune|craft)/.test(e.move || "")) { const q = document.createElement("q"); q.textContent = e.words; el.append(" ", q); }
+  const feed = $("feed");
+  feed.appendChild(el);
+  while (feed.children.length > 6) feed.firstChild.remove();
+  if (e.move === "leave_note" && e.words) add("letter", e.words, { small: `${NAME} left you a note, ${clock(e.ts)}` });
+  const made = /^(draw|play_tune|craft):(\d+)$/.exec(e.move || "");
+  if (made) showWork(Number(made[2]), e.ts, e.fresh);
+}
+
+async function poll() {
+  try {
+    const vis = document.visibilityState === "visible" ? 1 : 0;
+    const res = await api(`/api/world?visible=${vis}` + (lastEvent === null ? "" : `&since=${lastEvent}`));
+    if (res.status === 403) { location.reload(); return; }      // the program restarted with a new key
+    const p = await res.json();
+    if (p.ui && p.ui !== UIVER) { location.reload(); return; }   // the window itself was updated
+    snapshot = p; lastEvent = p.last_event;
+    p.events.forEach(e => { e.fresh = loaded; feedLine(e); });
+    loaded = true;
+    world.update(p);
+    showState(p);
+    if (picked) { const it = p.items.find(i => i.id === picked); it ? showItem(it) : showItem(null); }
+    if (chestOpen) showChest(true);
+    if ($("mindCard").style.display === "block") showMind(p);   // [threads]
+    if (!$("gKind").options.length) fillGive(p);
+  } catch (err) {
+    $("status").textContent = NAME + " is not running. Start it again from the shortcut.";
+  }
+}
+
+function fillGive(p) {
+  const labels = { shell: "Shell", pebble: "Pebble or stone", seaglass: "Piece of glass", cap: "Cap or lid", nut: "Nut or bolt",
+    washer: "Ring or washer", feather: "Feather", coin: "Coin or disc", button: "Button", marble: "Ball or marble", key: "Key", trinket: "Something else", scrap: "Scrap of paper", seed: "Seed (it can be planted)" };
+  labels.treat = "Something to eat (it gets used up)";      // [plans]
+  $("gKind").replaceChildren(...p.kinds.map(k => new Option(labels[k] || k, k)));
+  $("gKind").value = "trinket";
+  $("iPlace").replaceChildren(...Object.entries(p.places).map(([id, n]) => new Option(n, id)));
+}
+
+let chestOpen = false;
+const DRAWERS = [["Shells", ["shell"]], ["Stones", ["pebble"]], ["Glass and marbles", ["seaglass", "marble"]],
+  ["Metal", ["nut", "washer", "coin", "key", "cap", "button"]], ["Its own work", ["made"]]];
+function showChest(on) {
+  chestOpen = on;
+  $("chestCard").style.display = on ? "block" : "none";
+  if (!on || !snapshot) return;
+  const inside = snapshot.items.filter(i => i.place === "chest");
+  const shown = snapshot.items.filter(i => i.place === "ledge").length;
+  $("chestNote").textContent = (inside.length
+    ? `${inside.length} thing${inside.length === 1 ? "" : "s"} put away. `
+    : `Empty. ${NAME} puts things away here when the ledge is full. `)
+    + `On show on the ledge: ${shown} of ${snapshot.display_max} favourites.`;
+  const left = new Set(inside);
+  const groups = DRAWERS.map(([label, kinds]) => {
+    const list = inside.filter(i => kinds.includes(i.kind));
+    list.forEach(i => left.delete(i));
+    return [label, list];
+  });
+  groups.push(["Odds and ends", [...left]]);
+  $("chestList").replaceChildren(...groups.filter(([, list]) => list.length).map(([label, list]) => {
+    const div = document.createElement("div");
+    div.className = "drawer";
+    const h = document.createElement("h4");
+    h.textContent = `${label} (${list.length})`;
+    div.append(h, ...list.map(i => {
+      const b = document.createElement("button");
+      b.textContent = i.name;
+      b.onclick = () => { showChest(false); showItem(i); };
+      return b;
+    }));
+    return div;
+  }));
+}
+
+function showItem(item) {
+  picked = item ? item.id : null;
+  $("itemCard").style.display = item ? "block" : "none";
+  if (!item) return;
+  $("iName").textContent = item.name;
+  $("iDesc").textContent = item.desc;
+  $("iArt").replaceChildren(...(Array.isArray(item.px) ? [pixelSvg(item.px)] : []));
+  const where = item.place === "carried" ? `${NAME} is carrying it` : "At " + (snapshot.places[item.place] || item.place);
+  const origin = { tide: "left by the tide", "dug up": "dug up from the dune", "from you": "a gift from you", made: `made by ${NAME} at the workshop`, found: "found in the moss", cave: "brought out of the cave", shrimp: "pushed up out of the pool by the shrimp" }[item.from] || item.from;
+  $("iFrom").textContent = `${where}. ${origin[0].toUpperCase() + origin.slice(1)}, ${day(item.ts)}.`;
+  $("iNote").textContent = item.note ? `${NAME}: “${item.note}”` : "";
+  $("iRead").textContent = item.learned ? `${NAME} looked it up in the encyclopedia under “${item.learned_title}”: ${item.learned}` : "";
+  if (item.learned && item.wired) $("iRead").textContent = `${NAME} asked the wider world about it and an answer came back under “${item.learned_title}”: ${item.learned}`;   // [research]
+  const link = typeof item.link === "string" && item.link.startsWith("https://") ? item.link : "";
+  $("iLinkP").style.display = link ? "block" : "none";
+  if (link) $("iLink").href = link;
+  $("iMove").disabled = $("iPlace").disabled = item.place === "carried";
+  if (item.place !== "carried") $("iPlace").value = item.place;
+}
+
+async function tap() { if (state !== "tucked") { await api("/api/tap", {}); poll(); } }
+$("tapBtn").onclick = tap;
+$("viewBtn").onclick = () => {
+  following = !following;
+  world.setFollow(following);
+  $("viewBtn").textContent = following ? "Both tanks" : "Follow " + NAME;
+};
+if (location.hash === "#wide") $("viewBtn").onclick();      // open straight onto the wide view
+let sharpOn = true;                                         // remembered per browser
+try { sharpOn = localStorage.getItem("sharp") !== "0"; } catch (e) {}
+function showSharp() { world.setSharp(sharpOn); $("sharpBtn").textContent = sharpOn ? "Picture: sharp" : "Picture: smooth"; }
+$("sharpBtn").onclick = () => { sharpOn = !sharpOn; try { localStorage.setItem("sharp", sharpOn ? "1" : "0"); } catch (e) {} showSharp(); };
+showSharp();
+if (location.hash === "#chest") setTimeout(() => showChest(true), 2500);   // open straight onto the chest's contents
+$("iClose").onclick = () => showItem(null);
+$("chestClose").onclick = () => showChest(false);
+$("iMove").onclick = async () => { await api("/api/move-item", { id: picked, place: $("iPlace").value }); poll(); };
+$("iRemove").onclick = async () => { if (confirm("Take this out of the terrarium for good?")) { await api("/api/remove-item", { id: picked }); showItem(null); poll(); } };
+$("giveBtn").onclick = () => { $("srcCard").style.display = $("brainCard").style.display = $("sentCard").style.display = "none"; $("giveCard").style.display = "block"; $("gErr").textContent = ""; $("gName").focus(); };
+$("gCancel").onclick = () => { $("giveCard").style.display = "none"; };
+$("gSend").onclick = async () => {
+  const res = await api("/api/give", { kind: $("gKind").value, name: $("gName").value, desc: $("gDesc").value });
+  if (!res.ok) { $("gErr").textContent = (await res.json()).error || "That didn't work."; return; }
+  $("gName").value = $("gDesc").value = ""; $("giveCard").style.display = "none"; poll();
+};
+$("gName").addEventListener("keydown", e => { if (e.key === "Enter") $("gSend").click(); });
+
+// ------------------------------------------------------------- calendar  [plans]
+
+async function loadPlans() {
+  const d = await (await api("/api/plans")).json();
+  const line = (title, small, said, label, onClick) => {
+    const el = document.createElement("div"); el.className = "src";
+    const span = document.createElement("span"); span.textContent = title;
+    const sm = document.createElement("small"); sm.textContent = small; span.append(sm);
+    if (said) { const qq = document.createElement("q"); qq.textContent = said; span.append(qq); }
+    el.append(span);
+    if (label) { const b = document.createElement("button"); b.textContent = label; b.onclick = onClick; el.append(b); }
+    return el;
+  };
+  const empty = text => { const el = document.createElement("p"); el.textContent = text; return el; };
+  const up = d.upcoming.map(x => line(x.title, `${x.when}, for ${x.minutes} minutes`, "",
+    "Remove", async () => { await api("/api/plan-remove", { id: x.id }); loadPlans(); poll(); }));
+  $("planList").replaceChildren(...(up.length ? up : [empty("Nothing yet.")]));
+  const what = { "was there": `${NAME} was at the glass for it`, missed: `${NAME} meant to be there and missed it`, "slept through": `${NAME} slept through it` };
+  const past = d.past.map(x => line(x.title, `${x.when}. ${what[x.state] || x.state}.`, x.state === "was there" ? x.words : ""));
+  $("planPast").replaceChildren(...(past.length ? past : [empty("Nothing has happened yet.")]));
+}
+$("planBtn").onclick = () => {
+  $("srcCard").style.display = $("giveCard").style.display = $("brainCard").style.display = $("sentCard").style.display = "none";
+  $("planCard").style.display = "block"; $("planErr").textContent = "";
+  if (!$("pDate").value) {                    // start from the next full hour
+    const t = new Date(Date.now() + 3600e3), two = n => String(n).padStart(2, "0");
+    $("pDate").value = `${t.getFullYear()}-${two(t.getMonth() + 1)}-${two(t.getDate())}`;
+    $("pTime").value = `${two(t.getHours())}:00`;
+  }
+  loadPlans();
+};
+["giveBtn", "srcBtn", "brainBtn", "sentBtn"].forEach(id => $(id).addEventListener("click", () => { $("planCard").style.display = "none"; }));
+$("planClose").onclick = () => { $("planCard").style.display = "none"; };
+$("planAdd").onclick = async () => {
+  const res = await api("/api/plan", { title: $("pTitle").value, when: `${$("pDate").value}T${$("pTime").value}`, minutes: $("pMins").value });
+  $("planErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  if (res.ok) $("pTitle").value = "";
+  loadPlans(); poll();
+};
+$("pTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("planAdd").click(); });
+setInterval(() => { if ($("planCard").style.display === "block") loadPlans(); }, 15000);
+
+// ------------------------------------------------- drawings and tunes
+
+function drawingSvg(strokes) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "-6 -6 112 112");
+  svg.setAttribute("preserveAspectRatio", "none");
+  for (const stroke of strokes) {
+    const line = document.createElementNS(NS, "polyline");
+    line.setAttribute("points", stroke.map(pt => pt.join(",")).join(" "));
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", "#6b5836");
+    line.setAttribute("stroke-width", "2.2"); line.setAttribute("stroke-linecap", "round"); line.setAttribute("stroke-linejoin", "round");
+    svg.append(line);
+  }
+  return svg;
+}
+
+const PIXEL = { K: "#16181c", W: "#f2efe6", G: "#8d939b", R: "#c8443a", O: "#e08a2e", Y: "#e8c547",
+  L: "#4f9a6a", T: "#3f9c98", B: "#4a86c8", P: "#8662b8", N: "#8a6a3a", S: "#e6c9a0" };
+function pixelSvg(rows) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "-1 -1 14 14");
+  svg.setAttribute("shape-rendering", "crispEdges");
+  svg.classList.add("px");
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (!PIXEL[ch]) return;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", 1.02); r.setAttribute("height", 1.02);
+    r.setAttribute("fill", PIXEL[ch]);
+    svg.append(r);
+  }));
+  return svg;
+}
+function savePixels(w) {                      // the picture alone, on a clear background
+  const c = document.createElement("canvas"), k = 32;
+  c.width = c.height = 12 * k;
+  const g = c.getContext("2d");
+  w.px.forEach((row, y) => [...row].forEach((ch, x) => { if (PIXEL[ch]) { g.fillStyle = PIXEL[ch]; g.fillRect(x * k, y * k, k, k); } }));
+  const a = document.createElement("a");
+  a.href = c.toDataURL("image/png");
+  a.download = w.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") + ".png";
+  a.click();
+}
+
+const PITCH = { C4: 261.63, D4: 293.66, E4: 329.63, G4: 392.0, A4: 440.0, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880.0 };
+let audio = null;
+function playTune(tune) {
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === "suspended") audio.resume();
+  const beat = 60 / (tune.tempo || 100);
+  let t = audio.currentTime + 0.08;
+  for (const [note, beats] of tune.notes) {
+    const f = PITCH[note];
+    if (f) {                                    // a struck, woody note: quick attack, fast decay
+      const osc = audio.createOscillator(), over = audio.createOscillator(), gain = audio.createGain();
+      osc.type = "triangle"; osc.frequency.value = f;
+      over.type = "sine"; over.frequency.value = f * 4;
+      const og = audio.createGain(); og.gain.value = 0.18;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.32, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.35, beats * beat * 1.4));
+      osc.connect(gain); over.connect(og); og.connect(gain); gain.connect(audio.destination);
+      osc.start(t); over.start(t);
+      const end = t + Math.max(0.4, beats * beat * 1.5);
+      osc.stop(end); over.stop(end);
+    }
+    t += beats * beat;
+  }
+}
+
+async function showWork(id, ts, fresh) {
+  let w;
+  try { const res = await api("/api/work?id=" + id); if (!res.ok) return; w = await res.json(); } catch { return; }
+  const el = add("made", "", { small: w.kind === "item" ? `${NAME} made ${w.title}, ${clock(ts)}`
+    : `${NAME} ${w.kind === "drawing" ? "drew" : "made up a tune"}: “${w.title}”, ${clock(ts)}` });
+  if (w.kind === "item") { el.body.textContent = w.about; el.append(pixelSvg(w.px)); }
+  else if (w.kind === "drawing") el.append(drawingSvg(w.strokes));
+  else {
+    const b = document.createElement("button"); b.textContent = "Play"; b.onclick = () => playTune(w);
+    el.append(b);
+    if (fresh && soundOn) playTune(w);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+$("soundBtn").onclick = () => {
+  soundOn = !soundOn;
+  $("soundBtn").textContent = "Sound: " + (soundOn ? "on" : "off");
+  if (soundOn) { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); }
+};
+
+// ---------------------------------------------------------------- brain
+
+const money = n => "$" + Number(n).toFixed(n < 1 ? 3 : 2);
+async function loadBrain() {
+  const d = await (await api("/api/brain")).json();
+  document.querySelectorAll('input[name="brain"]').forEach(r => { r.checked = r.value === d.mode; });
+  $("keyState").textContent = d.has_key ? `A key is saved (ends in ${d.key_hint}).` : "No key saved.";
+  if (!d.sdk) $("brainErr").textContent = "The cloud library is missing. Start " + NAME + " from the shortcut, not by hand.";
+  else if (d.error) $("brainErr").textContent = "Last cloud problem: " + d.error;
+  const tr = (label, x) => { const r = document.createElement("tr"); [label, x.calls, money(x.cost)].forEach((v, i) => { const c = document.createElement("td"); c.textContent = v; if (i) c.className = "n"; r.append(c); }); return r; };
+  const names = { move: "its own moves", chat: "chat", memory: "memory", journal: "journal", photo: "photos", news: "news scraps", research: "asking the wider world" };
+  showWire(d.research || {});   // [research]
+  $("useRows").replaceChildren(tr("Last 24 hours", d.day), tr("Last 7 days", d.week), tr("All time", d.all),
+    ...d.by_purpose.map(x => tr("  last 24 h: " + (names[x.purpose] || x.purpose), x)));
+  $("useNote").textContent = d.all.calls === 0 ? "Nothing has been sent to the cloud yet."
+    : d.month_estimate === null ? "A monthly estimate appears after an hour of cloud use."
+    : `At the pace of the last ${d.hours_measured} hours, about ${money(d.month_estimate)} a month.`;
+  const mv = d.moves || { model: 0, program: 0 };       // [quiet]
+  $("moveNote").textContent = mv.model + mv.program === 0 ? "" : `${NAME}'s own moves so far: ${mv.model} thought through, ${mv.program} that needed no thinking and so cost nothing.`;
+}
+function showWire(r) {   // [research]
+  $("wireOn").checked = !!r.on; $("wireOn").disabled = !r.offered;
+  const sites = (r.domains || []).join(", ");
+  $("wireNote").textContent = !r.offered ? `Only on offer while ${NAME} thinks in the cloud.`
+    : `Today: ${r.today} of ${r.cap} questions, ${money(r.cost_today)} so far. Each question may use up to ${r.searches} searches at ${money(r.search_price)} each, plus the usual cost of the words. Sites it may draw on: ${sites}.`;
+  $("wireErr").textContent = r.offered && r.problem ? "Last time: " + r.problem : "";
+}
+$("wireOn").addEventListener("change", async () => {   // [research]
+  if ($("wireOn").checked && !confirm("Let " + NAME + " send short questions to Anthropic's web search? Each question is the plain name of one of its finds, or what you asked it to search for.")) { loadBrain(); return; }
+  await api("/api/research", { on: $("wireOn").checked });
+  loadBrain();
+});
+$("brainBtn").onclick = () => { $("srcCard").style.display = $("giveCard").style.display = $("sentCard").style.display = "none"; $("brainCard").style.display = "block"; $("brainErr").textContent = ""; loadBrain(); };
+$("brainClose").onclick = () => { $("brainCard").style.display = "none"; };
+document.querySelectorAll('input[name="brain"]').forEach(r => r.addEventListener("change", async () => {
+  if (r.value === "cloud" && !confirm("Send " + NAME + "'s memory, your conversations and any photos it looks at to Anthropic from now on?")) { loadBrain(); return; }
+  const res = await api("/api/brain", { mode: r.value });
+  $("brainErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  loadBrain(); poll();
+}));
+$("keySave").onclick = async () => {
+  const res = await api("/api/brain-key", { key: $("keyBox").value });
+  $("brainErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  $("keyBox").value = ""; loadBrain();
+};
+$("keyForget").onclick = async () => { if (confirm("Forget the saved key? " + NAME + " goes back to thinking on this PC.")) { await api("/api/brain-key-forget", {}); loadBrain(); poll(); } };
+
+// ------------------------------------------------------------- sent out
+
+const kb = n => n < 1024 ? n + " bytes" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+async function loadSent() {
+  const d = await (await api("/api/sent")).json();
+  const what = { move: "one of its own moves", chat: "a chat reply", memory: "memory keeping", journal: "a journal entry", photo: "describing a photo",
+    news: "a news scrap for the reader", reading: "the encyclopedia", research: "a question for the wider world", tidying: "memory tidying", feed: "checking a news feed", other: "other" };
+  $("sentNote").textContent = (d.mode === "cloud"
+    ? `${NAME} is thinking in the cloud, so each thought is sent to Anthropic. `
+    : `${NAME} is thinking on this PC, so only news feed checks leave it. `)
+    + (d.total ? `Last 24 hours: ${d.day.count} sent, ${kb(d.day.bytes)} in all. Newest first; click one to read exactly what was in it.`
+               : "Nothing has been sent since this list was started.")
+    + " Requests to Anthropic also carry your API key and the usual technical headers (library version, operating system)."
+    + ` The program is running as the Windows account “${d.account}”.`;
+  $("sentList").replaceChildren(...d.rows.map(x => {
+    const el = document.createElement("div"); el.className = "src";
+    const span = document.createElement("span"); span.textContent = `${x.dest}: ${what[x.purpose] || x.purpose}`;
+    const sm = document.createElement("small"); sm.textContent = `${day(x.ts)}, ${clock(x.ts)} · ${kb(x.size)}` + (x.note ? ` · ${x.note}` : "");
+    span.append(sm);
+    const b = document.createElement("button"); b.textContent = x.kept ? "Read" : "Cleared"; b.disabled = !x.kept;
+    b.onclick = async () => {
+      const open = span.querySelector("pre");
+      if (open) { open.remove(); b.textContent = "Read"; return; }
+      const body = (await (await api("/api/sent-item?id=" + x.id)).json()).body;
+      const pre = document.createElement("pre"); pre.textContent = body || "(no longer kept)";
+      span.append(pre); b.textContent = "Hide";
+    };
+    el.append(span, b); return el;
+  }));
+}
+$("sentBtn").onclick = () => { $("srcCard").style.display = $("giveCard").style.display = $("brainCard").style.display = "none"; $("sentCard").style.display = "block"; loadSent(); };
+$("sentClose").onclick = () => { $("sentCard").style.display = "none"; };
+
+// -------------------------------------------------------------- on its mind
+
+function showMind(p) {
+  const kinds = { wondering: "A question", making: "Something to make", looking: "Something to see through", meaning: "Something it means to do" };
+  const t = (p && p.threads) || { open: [], closed: [] };
+  const one = (x, closed) => {
+    const el = document.createElement("div"); el.className = "th" + (closed ? " closed" : "");
+    const b = document.createElement("b"); b.textContent = `${kinds[x.kind] || x.kind}: ${x.title}`;
+    const head = document.createElement("small");
+    head.textContent = closed ? `${x.stage === "done" ? "Done" : "Put aside"} · began ${x.since}` : `Began ${x.since}`;
+    el.append(b, head);
+    x.steps.forEach(s => { const sm = document.createElement("small"); sm.textContent = `– ${s.text} (${s.when})`; el.append(sm); });
+    return el;
+  };
+  const title = text => { const h = document.createElement("h4"); h.textContent = text; return h; };
+  const none = document.createElement("p"); none.textContent = `Nothing in particular just now. Things turn up here when ${NAME} looks closely at a find, plants a seed or sets out to do something.`;
+  $("mindList").replaceChildren(
+    ...(t.open.length ? [title("On the go"), ...t.open.map(x => one(x, false))] : [none]),
+    ...(t.closed.length ? [title("Lately closed"), ...t.closed.map(x => one(x, true))] : []));
+}
+$("mindBtn").onclick = () => { $("srcCard").style.display = $("giveCard").style.display = $("brainCard").style.display = $("sentCard").style.display = "none"; $("mindCard").style.display = "block"; showMind(snapshot); };
+$("mindClose").onclick = () => { $("mindCard").style.display = "none"; };
+
+// -------------------------------------------------------------- sources
+
+async function loadSources() {
+  const d = await (await api("/api/sources")).json();
+  $("srcOn").checked = d.enabled;
+  const line = (title, small, label, onClick) => {
+    const el = document.createElement("div"); el.className = "src";
+    const span = document.createElement("span"); span.textContent = title;
+    const sm = document.createElement("small"); sm.textContent = small; span.append(sm);
+    const b = document.createElement("button"); b.textContent = label; b.onclick = onClick;
+    el.append(span, b); return el;
+  };
+  const list = d.sources.map(x => line(x.title,
+    `${x.url} · ${x.last_fetch ? "checked " + clock(x.last_fetch) : "not checked yet"} · ${x.last_status} · ${x.waiting} waiting`,
+    "Remove", async () => { await api("/api/source-remove", { id: x.id }); loadSources(); }));
+  $("srcList").replaceChildren(...list);
+  if (!list.length) $("srcList").innerHTML = '<p>None yet. Nothing is fetched until you add one.</p>';
+  $("srcSuggest").replaceChildren(...d.suggested.map(x => line(x.title, x.url, "Add", () => addSource(x.url))));
+}
+async function addSource(url) {
+  $("srcErr").textContent = "Checking the feed…";
+  const res = await api("/api/source-add", { url });
+  $("srcErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  if (res.ok) $("srcUrl").value = "";
+  loadSources();
+}
+$("srcBtn").onclick = () => { $("srcCard").style.display = "block"; $("giveCard").style.display = $("brainCard").style.display = $("sentCard").style.display = "none"; $("srcErr").textContent = ""; loadSources(); };
+$("srcClose").onclick = () => { $("srcCard").style.display = "none"; };
+$("srcAdd").onclick = () => { const u = $("srcUrl").value.trim(); if (u) addSource(u); };
+$("srcFetch").onclick = async () => { await api("/api/sources-fetch", {}); $("srcErr").textContent = "Checking now…"; setTimeout(() => { $("srcErr").textContent = ""; loadSources(); }, 6000); };
+$("srcOn").onchange = async e => { await api("/api/sources-toggle", { enabled: e.target.checked }); };
+
+// ----------------------------------------------------------------- chat
+
+function add(role, text, extra = {}) {
+  const el = document.createElement("div");
+  el.className = role === "note" ? "note" : "msg " + role;
+  if (extra.small) { const s = document.createElement("small"); s.textContent = extra.small; el.append(s); }
+  if (extra.photo) { const im = document.createElement("img"); im.src = extra.photo; im.alt = "Photo you showed " + NAME; el.append(im); }
+  const body = document.createElement("span"); body.textContent = text; el.append(body);
+  el.body = body;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+
+async function loadHistory() {
+  const rows = await (await api("/api/history")).json();
+  let lastDay = "";
+  for (const r of rows) {
+    const d = new Date(r.ts * 1000).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    if (d !== lastDay) { add("note", d); lastDay = d; }
+    add(r.role, r.content, r.photo_id ? { photo: photoUrl(r.photo_id) } : {});
+  }
+  if (!rows.length) add("note", NAME + " has never met you. Say hello.");
+}
+
+// Photos are shrunk in the browser before they are handed over.
+function readPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) return reject(new Error("not an image"));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.86));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("unreadable")); };
+    img.src = url;
+  });
+}
+async function attach(file) {
+  try {
+    pendingPhoto = await readPhoto(file);
+    $("attachImg").src = pendingPhoto; $("attach").style.display = "flex"; box.focus();
+  } catch { add("note", "That file isn't a photo this window can open. JPEG and PNG work."); }
+}
+function clearPhoto() { pendingPhoto = null; $("attach").style.display = "none"; $("file").value = ""; }
+$("photoBtn").onclick = () => $("file").click();
+$("file").onchange = e => e.target.files[0] && attach(e.target.files[0]);
+$("attachX").onclick = clearPhoto;
+const chat = $("chat");
+chat.addEventListener("dragover", e => { e.preventDefault(); chat.classList.add("drop"); });
+chat.addEventListener("dragleave", () => chat.classList.remove("drop"));
+chat.addEventListener("drop", e => { e.preventDefault(); chat.classList.remove("drop"); const f = e.dataTransfer.files[0]; if (f) attach(f); });
+box.addEventListener("paste", e => { const f = [...e.clipboardData.files].find(x => x.type.startsWith("image/")); if (f) { e.preventDefault(); attach(f); } });
+
+async function send(text, image) {
+  busy = true; if (snapshot) showState(snapshot);
+  add("user", text, image ? { photo: image } : {});
+  let bubble = null;
+  try {
+    const res = await api("/api/chat", image ? { text, image } : { text });
+    if (res.status === 409) { add("note", NAME + " is tucked into the helmet while the sim is running."); return; }
+    if (!res.ok) { add("note", "That didn't go through. Try again."); return; }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (!line.startsWith("data: ")) continue;
+        const ev = JSON.parse(line.slice(6));
+        if (ev.status === "waking") $("status").textContent = STATUS.waking;
+        if (ev.t) {
+          if (!bubble) bubble = add("assistant", "");
+          bubble.body.textContent += ev.t;
+          log.scrollTop = log.scrollHeight;
+        }
+        if (ev.error) add("note", "Problem: " + ev.error);
+      }
+    }
+  } catch { add("note", "Lost the connection to " + NAME + "."); }
+  finally { busy = false; await poll(); box.focus(); }
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const text = box.value.trim();
+  if ((!text && !pendingPhoto) || busy || state === "tucked") return;
+  const image = pendingPhoto;
+  box.value = ""; box.style.height = ""; clearPhoto();
+  send(text, image);
+});
+box.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } });
+box.addEventListener("input", () => { box.style.height = ""; box.style.height = Math.min(box.scrollHeight + 2, 150) + "px"; });
+
+$("tuckBtn").onclick = async () => { await api("/api/tuck", {}); add("note", NAME + " is tucking in. The graphics card will be free in a moment."); };
+$("quitBtn").onclick = async () => {
+  if (!confirm("Close " + NAME + " completely?")) return;
+  await api("/api/quit", {});
+  closed = true;
+  world.dispose();
+  document.body.innerHTML = '<p style="margin:auto;color:#8f9aa5">' + NAME + " is closed. This tab will come back to life when you start " + NAME + " again.</p>";
+  setInterval(async () => { try { if ((await fetch("/")).ok) location.reload(); } catch {} }, 4000);
+};
+
+// --------------------------------------------------------------- memory
+
+function row(text, small, onForget, img) {
+  const el = document.createElement("div"); el.className = "row";
+  if (img) { const im = document.createElement("img"); im.src = img; im.alt = ""; el.append(im); }
+  const span = document.createElement("span"); span.textContent = text;
+  if (small) { const s = document.createElement("small"); s.textContent = small; span.prepend(s); }
+  const b = document.createElement("button"); b.textContent = "Forget"; b.onclick = onForget;
+  el.append(span, b); return el;
+}
+// [night] who it has become, what it has worked out, and its last days with their dreams
+function nightRows(n, fill) {
+  const post = (path, body) => async () => { await api(path, body); loadMemory(); };
+  const strong = ["", "a little", "rather", "very much"];
+  const lean = (n.leanings || []).filter(x => x.weight > 0);
+  fill("become", lean.length ? [row(lean.map(x => `${x.word.replace(/^an? /, "")}: ${strong[x.weight] || ""} (${x.weight} of ${x.top})`).join(", "),
+    "", post("/api/forget-leanings", {}))] : [], "Nothing yet. Each night it looks back over its day, and what it keeps doing shows here as a leaning. Its written character never changes.");
+  fill("worked", (n.worked || []).map(x => row(x.learned, day(x.ts), post("/api/forget-day", { id: x.id, worked: true }))), "Nothing yet.");
+  fill("days", (n.days || []).map(x => {
+    const el = row(x.text, day(x.ts), post("/api/forget-day", { id: x.id }));
+    if (x.dream) { const d = document.createElement("i"); d.textContent = " It dreamt: " + x.dream + "."; el.querySelector("span").append(d); }
+    return el;
+  }), "Nothing yet. A day is written the first night after it has made fifteen moves.");
+}
+function wireFrom(x) {   // [research] a reading that came from the web says so, and from which site
+  if (x.source !== "web") return "";
+  let site = ""; try { site = x.link && x.link.startsWith("https://") ? new URL(x.link).hostname : ""; } catch (e) { site = ""; }
+  return " · from the web, down the wire" + (site ? " (" + site + ")" : "");
+}
+async function loadMemory() {
+  const m = await (await api("/api/memory")).json();
+  const forget = (path, id) => async () => { await api(path, { id }); loadMemory(); };
+  const fill = (id, rows, empty) => { const box = $(id); box.replaceChildren(...rows); if (!rows.length) box.innerHTML = `<p class="hint">${empty}</p>`; };
+  fill("facts", m.facts.map(x => row(x.text, day(x.ts), forget("/api/forget", x.id))), "Nothing yet.");
+  fill("journal", m.journal.map(x => row(x.summary, day(x.started), forget("/api/forget-journal", x.id))), "No entries yet. One is written after each conversation ends.");
+  const span = x => new Date(x.ts_from * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " to " + day(x.ts_to);
+  fill("digests", (m.digests || []).map(x => row(x.text, span(x), forget("/api/forget-digest", x.id))), "Nothing yet. Once the journal has more than a dozen entries, the oldest are condensed here so they are not lost from view.");
+  fill("diary", m.diary.map(x => row(x.words, day(x.ts) + ", " + clock(x.ts), forget("/api/forget-diary", x.id))), "Nothing yet. It writes here on its own.");
+  const plain = (text, small) => { const el = row(text, small, null); el.lastChild.remove(); return el; };   // [voice]
+  const voice = m.voice || { resting: [], best: [] };
+  fill("resting", voice.resting.map(x => plain("“" + x.text + "”", "back in about " + x.left + " moves")), "None at the moment. Words and phrases it has leaned on are rested here for a while, so it cannot settle into a catchphrase.");
+  fill("bestlines", voice.best.map(x => plain(x.text, x.spent ? "shown back to it " + x.shown + " times, now retired" : x.shown ? "shown back to it " + x.shown + (x.shown === 1 ? " time" : " times") : "")), "None yet. Its own best lines are kept here and a couple are shown back to it now and then as examples of how it sounds.");
+  nightRows(m.night || {}, fill);   // [night]
+  fill("reading", (m.reading || []).map(x => row(x.title + ": " + x.summary, day(x.ts) + ", " + clock(x.ts) + wireFrom(x), forget("/api/forget-reading", x.id))), "Nothing yet. It looks things up at the reading stone in the second tank, or when you ask it to.");
+  fill("beliefs", (m.beliefs || []).map(t => { const el = document.createElement("div"); el.className = "row"; const sp = document.createElement("span"); sp.textContent = t; el.append(sp); return el; }), "Nothing yet. These are worked out from what has actually happened to it, good days and bad, so they cannot be made up.");  // [mood]
+  const workRow = w => {
+    const el = row(w.title, day(w.ts) + ", " + clock(w.ts), forget("/api/forget-work", w.id));
+    if (w.kind === "item") {
+      el.prepend(pixelSvg(w.px));
+      const b = document.createElement("button"); b.textContent = "Save picture"; b.onclick = () => savePixels(w);
+      el.insertBefore(b, el.lastChild);
+    } else if (w.kind === "drawing") el.prepend(drawingSvg(w.strokes));
+    else { const b = document.createElement("button"); b.textContent = "Play"; b.onclick = () => playTune(w); el.insertBefore(b, el.lastChild); }
+    return el;
+  };
+  fill("makes", m.works.filter(w => w.kind === "item").map(workRow), "None yet. It makes small things at the workshop when it feels like it, or when you ask.");
+  fill("drawings", m.works.filter(w => w.kind === "drawing").map(workRow), "None yet. It draws in the smooth patch of sand when it feels like it, or when you ask.");
+  fill("tunes", m.works.filter(w => w.kind === "tune").map(workRow), "None yet. It taps tunes on the hollow log when it feels like it, or when you ask.");
+  fill("photos", m.photos.map(x => row(x.caption || "Not described yet.", day(x.ts), forget("/api/forget-photo", x.id), photoUrl(x.id))), "No photos yet. Use the Photo button, or drop one on the chat.");
+}
+$("memBtn").onclick = () => { $("drawer").classList.add("open"); loadMemory(); };
+$("closeMem").onclick = () => $("drawer").classList.remove("open");
+
+// ----------------------------------------------------------------- start
+
+(async () => {
+  await loadHistory();
+  await poll();
+  if (state === "asleep") api("/api/wake", {});
+  setInterval(() => { if (!busy && !closed) poll(); }, 3000);
+})();
+</script>
+</body>
+</html>

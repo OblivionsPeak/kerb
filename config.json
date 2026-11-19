@@ -1,0 +1,23 @@
+{
+  "name": "Kerb",
+  "model_path": "",
+  "vision_path": "",
+  "ui_port": 4810,
+  "model_port": 4811,
+  "context_tokens": 8192,
+  "gpu_layers": 999,
+  "reply_max_tokens": 450,
+  "temperature": 0.9,
+  "session_gap_minutes": 45,
+  "idle_unload_minutes": 20,
+  "tick_seconds": 75,
+  "outing_every_minutes": 90,
+  "outing_ticks": 5,
+  "outing_tick_seconds": 15,
+  "vram_guard_percent": 97,
+  "tuck_when_running": [
+    "iRacingSim64DX11.exe"
+  ],
+  "encyclopedia_path": "",
+  "brain": "cloud"
+}

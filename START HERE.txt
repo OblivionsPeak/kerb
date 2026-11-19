@@ -1,0 +1,38 @@
+Kerb: a hermit crab in a racing helmet
+=========================================
+
+This is your own copy. It is a new crab with no memories: it has never met
+anyone, and nothing from the person who gave it to you came with it.
+
+What you need
+-------------
+1. Windows 10 or 11.
+2. Python 3.12 from https://www.python.org/downloads/ (tick "Add python.exe
+   to PATH" in the installer).
+3. An Anthropic API key of your own, from https://console.anthropic.com/
+   It is paid for by use. A crab that is awake makes about one move every
+   75 seconds, at roughly $0.0006 a move, and it sleeps when nobody has
+   looked at it for a while. Set a monthly spending limit in the Anthropic
+   console before you start.
+
+Getting started
+---------------
+1. Unzip this folder somewhere you can write to, for example Documents.
+2. Double-click "Set up.cmd" once. It makes the crab its own small Python
+   environment inside this folder and installs one library into it.
+3. Double-click "Wake the crab.vbs". A browser tab opens.
+4. Click Brain, paste your API key, and save. The key is encrypted for your
+   Windows account and never leaves your PC except to Anthropic.
+5. Say hello.
+
+Good to know
+------------
+- Everything it remembers is kept in the "data" folder that appears next to
+  the program. Delete that folder to start again with a blank crab.
+- The program only listens on this PC (127.0.0.1). Nobody else can reach it.
+- Its name is the first line of config.json. Change it before the first
+  start if you would like to call it something else.
+- The offline encyclopedia is optional. Download "wikipedia_en-simple_all_nopic"
+  from https://library.kiwix.org/ and put the file's full path in config.json
+  as "encyclopedia_path".
+- README.md explains everything it can do.
