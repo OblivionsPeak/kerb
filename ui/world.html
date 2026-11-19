@@ -84,6 +84,12 @@
   #planCard .src small { display: block; color: var(--muted); }
   #planCard .src q { display: block; color: var(--text); font-style: italic; }
   #planCard h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
+  #friendsCard { right: 14px; top: 58px; display: none; width: 460px; max-height: calc(100% - 80px); overflow-y: auto; }
+  #friendsCard .src { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  #friendsCard .src span { flex: 1; overflow-wrap: anywhere; }
+  #friendsCard .src small { display: block; color: var(--muted); }
+  #friendsCard .src q { display: block; color: var(--text); font-style: italic; }
+  #friendsCard h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--sand); }
   #srcCard { right: 14px; top: 58px; display: none; width: 400px; max-height: calc(100% - 80px); overflow-y: auto; }
   #srcCard .src { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
   #srcCard .src span { flex: 1; overflow-wrap: anywhere; }
@@ -176,6 +182,7 @@
     <button id="planBtn" title="Tell __NAME__ about something that is coming up">Calendar</button><!-- [plans] -->
     <button id="tapBtn" title="Get __NAME__'s attention">Tap the glass</button>
     <button id="srcBtn" title="News sources __NAME__'s tide can bring scraps from">Sources</button>
+    <button id="friendsBtn" title="Friends who may watch __NAME__ and leave notes, and what is sent for them">Friends</button><!-- [friends] -->
     <button id="brainBtn" title="Where __NAME__'s thinking runs, and what it costs">Brain</button>
     <button id="sentBtn" title="Everything this program has sent off this PC">Sent out</button>
     <button id="mindBtn" title="The things __NAME__ has on the go, and how each is getting on">On its mind</button>
@@ -212,6 +219,23 @@
     </div>
     <p id="planErr" style="color: var(--coral)"></p>
     <div class="rowb"><button class="primary" id="planAdd">Add</button><button id="planClose">Close</button></div>
+  </div>
+
+  <div class="overlay card" id="friendsCard"><!-- [friends] -->
+    <h3>Friends watching</h3>
+    <p>Friends with the invite code can watch __NAME__ on a small website and leave short notes, which wash up at the tideline. They see the tanks and the public feed. They never see your chat, the notebook, the journal, the diary, photos or the calendar. Every push is listed under Sent out.</p>
+    <p id="frState"></p>
+    <p id="frLast"></p>
+    <label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="frPause" style="width:auto"> Pause: send nothing at all for now</label>
+    <h4>Push key</h4>
+    <p id="frKeyState"></p>
+    <input id="frKey" type="password" autocomplete="off" placeholder="the site's push key">
+    <div class="rowb"><button class="primary" id="frKeySave">Save key</button><button id="frKeyForget">Forget key</button><button id="frPush">Send now</button></div>
+    <p>The key is stored encrypted for your Windows account on this PC. To switch the whole thing off, pause it here, or take "friends_url" out of config.json.</p>
+    <p id="frErr" style="color: var(--coral)"></p>
+    <h4>Notes from visitors</h4><div id="frNotes"></div>
+    <h4>Blocked names</h4><div id="frBlocked"></div>
+    <div class="rowb"><button id="frClose">Close</button></div>
   </div>
 
   <div class="overlay card" id="srcCard">
@@ -480,7 +504,7 @@ function showItem(item) {
   $("iDesc").textContent = item.desc;
   $("iArt").replaceChildren(...(Array.isArray(item.px) ? [pixelSvg(item.px)] : []));
   const where = item.place === "carried" ? `${NAME} is carrying it` : "At " + (snapshot.places[item.place] || item.place);
-  const origin = { tide: "left by the tide", "dug up": "dug up from the dune", "from you": "a gift from you", made: `made by ${NAME} at the workshop`, found: "found in the moss", cave: "brought out of the cave", shrimp: "pushed up out of the pool by the shrimp" }[item.from] || item.from;
+  const origin = { tide: "left by the tide", "dug up": "dug up from the dune", "from you": "a gift from you", made: `made by ${NAME} at the workshop`, found: "found in the moss", cave: "brought out of the cave", shrimp: "pushed up out of the pool by the shrimp", visitor: "a note left by a visitor to your friends' page" }[item.from] || item.from;
   $("iFrom").textContent = `${where}. ${origin[0].toUpperCase() + origin.slice(1)}, ${day(item.ts)}.`;
   $("iNote").textContent = item.note ? `${NAME}: “${item.note}”` : "";
   $("iRead").textContent = item.learned ? `${NAME} looked it up in the encyclopedia under “${item.learned_title}”: ${item.learned}` : "";
@@ -754,6 +778,64 @@ function showMind(p) {
 }
 $("mindBtn").onclick = () => { $("srcCard").style.display = $("giveCard").style.display = $("brainCard").style.display = $("sentCard").style.display = "none"; $("mindCard").style.display = "block"; showMind(snapshot); };
 $("mindClose").onclick = () => { $("mindCard").style.display = "none"; };
+
+// -------------------------------------------------------------- friends  [friends]
+
+async function loadFriends() {
+  const d = await (await api("/api/friends")).json();
+  $("frState").textContent = d.why || `On. A picture of the tanks goes to ${d.url} about once a move.`;
+  $("frLast").textContent = !d.configured ? "" : (d.last_ok ? `The last push that worked: ${day(d.last_ok)}, ${clock(d.last_ok)}.` : "No push has worked yet.")
+    + (d.error ? ` The last problem: ${d.error}` : "");
+  $("frKeyState").textContent = d.has_key ? "A push key is saved." : "No push key saved.";
+  $("frPause").checked = d.paused;
+  const btn = (label, onClick) => { const b = document.createElement("button"); b.textContent = label; b.onclick = onClick; return b; };
+  const empty = text => { const el = document.createElement("p"); el.textContent = text; return el; };
+  const what = { "new": `waiting its turn; ${NAME} has not seen it`, waiting: "lying at the tideline", read: `${NAME} has read it`, kept: `${NAME} kept it`,
+    "let go": `${NAME} let it go`, expired: `the tide took it before ${NAME} looked`, refused: `refused; ${NAME} never saw it` };
+  const notes = d.notes.map(x => {
+    const el = document.createElement("div"); el.className = "src";
+    const span = document.createElement("span"); span.textContent = `${x.name} wrote: ${x.text}`;
+    const sm = document.createElement("small"); sm.textContent = `${day(x.ts)}, ${clock(x.ts)} · ${what[x.state] || x.state}`
+      + (x.summary ? ` · what ${NAME} was given: ${x.summary}` : "");
+    span.append(sm);
+    if (x.reply) {
+      const qq = document.createElement("q"); qq.textContent = x.reply;
+      const s2 = document.createElement("small"); s2.textContent = x.held ? "Kept on this PC: not shown to the visitor." : "Shown to the visitor.";
+      span.append(qq, s2);
+    }
+    const side = document.createElement("div"); side.style.cssText = "display:flex;flex-direction:column;gap:4px";
+    side.append(btn("Remove", async () => { if (confirm("Remove this note? It also comes out of the tank.")) { await api("/api/friends-remove", { id: x.id }); loadFriends(); poll(); } }),
+      btn("Block this name", async () => { if (confirm(`Refuse every new note from “${x.name}”?`)) { await api("/api/friends-block", { name: x.name }); loadFriends(); } }));
+    el.append(span, side); return el;
+  });
+  $("frNotes").replaceChildren(...(notes.length ? notes : [empty("None yet.")]));
+  const blocked = d.blocked.map(n => {
+    const el = document.createElement("div"); el.className = "src";
+    const span = document.createElement("span"); span.textContent = n;
+    el.append(span, btn("Unblock", async () => { await api("/api/friends-unblock", { name: n }); loadFriends(); })); return el;
+  });
+  $("frBlocked").replaceChildren(...(blocked.length ? blocked : [empty("Nobody is blocked.")]));
+}
+$("friendsBtn").onclick = () => {
+  $("srcCard").style.display = $("giveCard").style.display = $("brainCard").style.display = $("sentCard").style.display = $("planCard").style.display = "none";
+  $("friendsCard").style.display = "block"; $("frErr").textContent = ""; loadFriends();
+};
+["giveBtn", "srcBtn", "brainBtn", "sentBtn", "planBtn"].forEach(id => $(id).addEventListener("click", () => { $("friendsCard").style.display = "none"; }));
+$("frClose").onclick = () => { $("friendsCard").style.display = "none"; };
+$("frPause").onchange = async e => { await api("/api/friends-pause", { paused: e.target.checked }); loadFriends(); };
+$("frKeySave").onclick = async () => {
+  const res = await api("/api/friends-key", { key: $("frKey").value });
+  $("frErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  $("frKey").value = ""; loadFriends();
+};
+$("frKeyForget").onclick = async () => { if (confirm("Forget the push key? Nothing more is sent until you save one again.")) { await api("/api/friends-key-forget", {}); loadFriends(); } };
+$("frPush").onclick = async () => {
+  $("frErr").textContent = "Sending…";
+  const res = await api("/api/friends-push", {});
+  $("frErr").textContent = res.ok ? "" : ((await res.json()).error || "That didn't work.");
+  loadFriends();
+};
+setInterval(() => { if ($("friendsCard").style.display === "block") loadFriends(); }, 15000);
 
 // -------------------------------------------------------------- sources
 

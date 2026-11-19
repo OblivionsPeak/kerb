@@ -17,6 +17,7 @@ quiet = collections.Counter()                                    # [quiet]
 th_seen = {}; th_closed = {}; th_keys = {}; th_reasons = collections.Counter()   # [threads]
 plans = collections.Counter()                                    # [plans] treats and the calendar
 wire = collections.Counter()                                     # [research] questions down the wire
+vis = collections.Counter()                                      # [friends] notes from visitors, as ordinary finds
 for n in range(12000):
     now += 75
     # [research] the wire is there for long spells, gone for others; now and then the person asks
@@ -25,8 +26,13 @@ for n in range(12000):
     if n % 900 == 450 and w["wire"] and not w.get("asked_art"):
         w["asked_art"] = "research"; w["asked_words"] = "search the web for sea glass"; wire["asked"] += 1
     w["crab"]["napping_until"] = None
+    notes = {k for k, i in w["items"].items() if i.get("visitor")}   # [friends]
+    if n % 150 == 60 and sum(i["place"] not in ("ledge", "chest", "hook") for i in w["items"].values() if i.get("visitor")) < 3:  # [friends]
+        W.add_item(w, "scrap", f"a note from Ana {n}", "It says: the visitor says hello.", "tideline", "visitor", now)["visitor"] = n + 1
+        vis["given"] += 1
     W.pet_tick(w, W.sky(now), now, rng)
     W.tide(w, now, rng); W.wash_away(w); W.grow(w, 2 if W.sky(now)["rain"] else 1)
+    vis["tide took"] += len(notes - set(w["items"]))             # [friends] the tide may take one like anything else
     if not w.get("aim"):
         ch = W.aim_choices(w)
         assert ch and len({a for a, _ in ch}) == len(ch), ch
@@ -106,6 +112,9 @@ for n in range(12000):
         if words: p["learned"] = "x"; p["learned_title"] = words
         else: p["no_entry"] = True
     before = (w["crab"]["energy"], len(w["items"]))              # [plans]
+    vis["look offered"] += any(x.startswith("examine:") and x[8:] in notes for x in ids)   # [friends]
+    vis["toss offered"] += any(x.startswith("toss:") and x[5:] in notes for x in ids)       # [friends]
+    vis[m.split(":")[0]] += m.partition(":")[2] in notes         # [friends] what was done to a note, by verb
     text = W.apply_move(w, m, words, now, "Kerb", rng, sky=W.sky(now))
     if m == "research":                                          # [research]
         about = "sea glass" if wire_was[0] else wire_was[2]["name"]
@@ -266,3 +275,9 @@ t["wire"] = 0
 assert "research" not in dict(W.valid_moves(t, now)) and len(W.valid_moves(t, now)) > 1   # wire gone: not stuck
 assert W.apply_move(t, "research", "X", now, "Kerb") is None
 print("wire ok")
+# [friends] a visitor's note is looked at, kept, tossed and washed away like any other scrap
+vis["kept"] = sum(1 for i in w["items"].values() if i.get("visitor") and i["place"] in ("ledge", "chest", "hook"))
+print("visitor notes", {k: v for k, v in vis.items() if v})
+assert vis["given"] > 20 and vis["tide took"] and vis["examine"] and vis["pick_up"] and vis["toss"], vis
+assert vis["look offered"] and vis["toss offered"] and vis["tide took"] + vis["toss"] <= vis["given"], vis
+assert all(i["kind"] == "scrap" and i["from"] == "visitor" for i in w["items"].values() if i.get("visitor"))

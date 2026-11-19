@@ -187,6 +187,40 @@ After you drive, it reads the last sample of the telemetry file iRacing wrote (t
 
 The window follows the crab up close by default; **Whole tank** switches to the wide view. An open tab reconnects by itself when the program restarts. The memory is copied once a day to `data/backups/`, keeping the last seven.
 
+## Friends watching
+
+A few friends can watch the crab on a small website and leave it short notes. This is the one place where the program sends anything about the crab to other people, so it is off until you set it up, and easy to stop.
+
+**Switching it on.** Put the site's address in `config.json` as `"friends_url": "https://..."`, restart, open **Friends** and paste the site's push key. Only an `https` address is accepted. With no address, nothing is ever sent and no note is ever read.
+
+**Pausing and switching it off.** The **Pause** switch in the Friends card stops every push at once. **Forget key** does the same until you save a key again. Taking `friends_url` out of `config.json` switches the whole thing off.
+
+**What leaves the PC.** About once a move (never more than once a minute), and every 15 minutes while the crab sleeps, the program makes one outgoing request to that one address. It never accepts a connection, and it does not follow a redirect. Each request carries a picture of the tanks, built field by field from a fixed list:
+
+- the crab's name, whether it is awake or asleep, where it is, what it carries, its energy, curiosity, shell and mood;
+- each thing in the tanks: its kind, name, description, place, where it came from, when, the crab's own remark on it, and what it read about it in the encyclopedia;
+- the garden, the things it has built, its lap times, the shrimp, the time of day and rain in the tanks, what it is working towards and what is on its mind;
+- the latest 12 lines of its feed (walking, digging, the tide, the garden, the shrimp, sleeping and waking), each with its passing thought when that is safe;
+- for each visitor's note: what became of it, and what the crab made of it.
+
+**What never leaves.** The notebook, the journal, the diary, your chat, photos, the drawings and tunes themselves (a feed line may name one it made off its own bat), the calendar, race notes, notes the crab leaves for you, the "while you were away" list, costs, the window's key and file paths are never read into the picture. On top of that:
+
+- A gift from you is sent by name only. Your description of it and the crab's remark on it stay here.
+- Lines about you in the feed ("You tapped on the glass", the calendar, a note left at the glass, coming over to talk) are left out. Sleep is always reported as "tucked in", whatever the reason.
+- A thought is dropped if it mentions you in any way, if it uses a telling word from the notebook or from what you typed in the last half hour, if you asked for that move, or if you did anything in the half hour before it. The crab's remark on a thing is dropped if it mentions you or uses one of those telling words. When in doubt, it is dropped.
+- Anything the crab drew, played or made because you asked, or within half an hour of you speaking, is left out altogether.
+- A news scrap is shown, but not which of your feeds it came from, and not its link.
+
+Every push is listed under **Sent out**, with the exact text that went.
+
+**How notes are checked.** A note is a stranger's words. The site cleans it and the program cleans it again: control characters and markup go, the text is cut to 200 characters and the name to two plain words. It is kept in a table of its own, never in the notebook, journal or chat. At most 10 notes are taken per push and 20 a day. Notes with plain instructions in them are refused by code. Each of the others goes once through the same no-memory reader that news scraps use, which sees the note and nothing else, and writes one sentence in reported speech ("the visitor asks whether..."). If the note holds instructions for an AI, asks for private information or is abusive, it is refused and the crab never sees it. Only that one sentence reaches the crab, as a paper scrap at the tideline called "a note from Ana". At most three lie in the tanks at once. The crab can look at it, keep it, toss it, or lose it to the tide, like any find.
+
+What the crab says when it takes a proper look is shown to that visitor. It is told to say nothing about you in it, and the program holds the remark back if it mentions you or uses a telling word from the notebook. The Friends card shows every note as it was written, what the crab was given, what became of it, and whether its remark was shown. **Remove** wipes a note and takes its scrap out of the tank. **Block this name** refuses every later note under that name.
+
+The crab knows that friends of yours can watch and leave notes, and sees one line listing who has (for example "Ana (3, you kept 2)"). It cannot talk with them.
+
+`tests\visitors_test.py` runs all of this against a pretend site on this PC, with a pretend model, in a throwaway folder.
+
 ## Files
 
 | File | What it is |
@@ -202,6 +236,7 @@ The window follows the crab up close by default; **Whole tank** switches to the 
 | `encyclopedia.py` | The only file that opens the offline encyclopedia. Never touches the network |
 | `threads.py` | What is on the crab's mind from day to day. Rules only, used by `world.py` |
 | `research.py` | The rules for asking the wider world: what a question may be, the request, what is kept. No files, network or model; `cloud.py` sends it |
+| `visitors.py` | Friends watching: the only file that sends anything about the crab to other people, and the only one that takes in their notes. Off unless `friends_url` is set. Stores the push key, encrypted (`data/friends-key.bin`) |
 | `tests/` | The guardrail test and the rules test |
 | `account/` | Scripts behind the two "separate account" shortcuts |
 | `cloud.py` | The only file that talks to Anthropic, used only when the Brain switch is set to cloud. Also stores the API key, encrypted for your Windows account (`data/cloud-key.bin`) |
@@ -224,6 +259,8 @@ Models are in `D:\models\LLM`: `gemma-3-12b-it-Q4_K_M.gguf` (7.3 GB) and its vis
 - The program has no code path that lets the model run commands, read or write files, or reach the network.
 - **Web, read-only:** `feeds.py` fetches only the https feed addresses on your sources list (every 3 hours, never while the sim runs). It refuses this PC, the home network, logins and odd ports, and re-checks every redirect. The model never writes an address or a search, so nothing it knows can be sent out. Each headline is summarised by a separate model call that sees only that headline and blurb, with no memory, and web addresses are stripped from its output. The one-sentence summary becomes a paper scrap at the tideline on every other tide. Article pages are never fetched; the item card's link opens in your own browser.
 - The model server is tied to the program with a Windows job object, so it cannot be left running if the program dies.
+
+- **Friends watching (off unless set up):** `visitors.py` makes one outgoing https request to the one address in `config.json`, with a picture built from an allow-list. Notes that come back are untrusted text: cleaned, capped, read by a no-memory reader, and kept out of the memory. See *Friends watching* above.
 
 - **Sent log:** every cloud prompt and every feed request is written to the `sent` table before it goes, and shown under **Sent out**.
 

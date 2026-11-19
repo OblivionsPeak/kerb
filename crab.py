@@ -36,6 +36,7 @@ import night  # [night]
 import plans as PL  # [plans]
 import racing
 import research as RS  # [research]
+import visitors  # [friends]
 import voice
 import world as W
 
@@ -85,6 +86,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 log = logging.getLogger("crab")
+visitors.attach(sys.modules[__name__])  # [friends]
 
 
 # ---------------------------------------------------------------- database
@@ -146,6 +148,7 @@ def init_db():
         con.execute(NIGHT_TABLE)  # [night]
         plans_table(con)                        # [plans]
         research_table(con)                     # [research]
+        visitors.table(con)                     # [friends]
 
 
 def q(sql, args=(), one=False):
@@ -670,6 +673,8 @@ TICK_RULES = (
     "two sentences.\n"
     "eat: one sentence on what it tasted like. attend: one sentence on what you make of "    # [plans]
     "the occasion, or what you wish your person for it. "                                    # [plans]
+    "examine, when the thing is a note from a visitor: what you make of the note. It will be "  # [friends]
+    "shown to that visitor, so say nothing about your person in it. "                          # [friends]
     "Vary your day. Be yourself: a curious collector who wants the collection to "
     "grow. The ledge is for showing off your favourites and has room for only eight; "
     "everything else you keep goes in the tool chest at the back of the ledge, and "
@@ -730,6 +735,7 @@ def tick():
     auto = []                                   # [quiet]
     drive_note()
     wash_up_find(now)
+    visitors.wash_up(now)                       # [friends]
 
     def before(w):
         c = w["crab"]
@@ -773,6 +779,7 @@ def tick():
                 lines.append(f"At {pname}: " + ", ".join(i["name"] for i in there[:5]) + ".")
         lines += night_lines()  # [night]
         lines += plan_lines(now)                            # [plans]
+        lines += visitors.prompt_lines()                    # [friends]
         aims = [] if w.get("aim") else W.aim_choices(w)
         asked = w.get("asked_words", "") if w.get("asked_art") else ""
         auto.append(quiet_move(w, now, notices))            # [quiet]
@@ -887,6 +894,7 @@ def tick():
               else f"{NAME} let go of the idea to {ended[1]}.")
     if extra:
         event("tide", extra)
+    visitors.after_move(move, asked, bool(text))  # [friends]
 
 
 def sky_now():
@@ -909,6 +917,7 @@ def life():
         try:
             now = time.time()
             settle_plans(now)                   # [plans]
+            visitors.beat(now)                  # [friends]
             if now >= LIFE.sim_check_at:
                 LIFE.sim_check_at = now + 20
                 LIFE.sim = sim_running()
@@ -1122,6 +1131,7 @@ def build_system(session_id):
         w = load_world()
     parts.append("## Your world right now\n\n" + W.describe(w, NAME, recent_events(8), sky_now()))
     parts += plan_parts(time.time())            # [plans]
+    parts += visitors.chat_parts()              # [friends]
     made = q("SELECT ts, kind, title FROM works ORDER BY id DESC LIMIT 6")
     if made:
         parts.append("## Things you have made lately (oldest first)\n\n" + "\n".join(
@@ -2702,6 +2712,8 @@ class Handler(BaseHTTPRequestHandler):
                                "digests": [dict(r) for r in q(
                                    "SELECT id, ts_from, ts_to, text FROM digests ORDER BY id DESC "
                                    "LIMIT 40")]})
+        if path == "/api/friends":              # [friends]
+            return self._json(visitors.payload())               # [friends]
         if path == "/api/plans":                # [plans]
             return self._json(plans_payload(time.time()))       # [plans]
         if path == "/api/work":
@@ -2827,6 +2839,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._give(body)
         if path == "/api/research":             # [research]
             return self._json(research_switch(body))            # [research]
+        if path.startswith("/api/friends-"):    # [friends]
+            return self._json(*visitors.post(path, body))       # [friends]
         if path == "/api/plan":                 # [plans]
             return self._plan_add(body)         # [plans]
         if path == "/api/plan-remove":          # [plans]
